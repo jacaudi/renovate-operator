@@ -32,6 +32,18 @@ Example — `VALKEY_URL=redis://valkey:6379/5`:
 
 If `VALKEY_URL` has no database component (e.g. `redis://valkey:6379`), the base is `0` and databases `0`, `1`, `2` are used — the same as the host-based default.
 
+### Single database
+
+`VALKEY_MULTI_DB` (Helm: `externalKeyValueStore.multiDB`) controls whether the usages get separate databases:
+
+| Value          | Standalone                | Cluster                   |
+|----------------|---------------------------|---------------------------|
+| unset (auto)   | separate databases        | one database              |
+| `true`         | separate databases        | separate databases        |
+| `false`        | one database              | one database              |
+
+With one database, a predefined URL is used unchanged (all usages share its database, `0` if it has none) and host-based settings use database `0`. The usages' key prefixes don't collide. Use `false` for servers that only allow database `0`. For cluster mode see [High availability](#high-availability).
+
 ## Configuration
 
 Valkey is configured via environment variables (or the equivalent Helm values):
@@ -45,6 +57,7 @@ Valkey is configured via environment variables (or the equivalent Helm values):
 | `VALKEY_PASSWORD`              | `externalKeyValueStore.existingSecret.passwordKey` | `""`  | Valkey password. Used when `VALKEY_URL` is not set. Only available via secret.                                    |
 | `VALKEY_TLS`                   | `externalKeyValueStore.useTls`                | `false`    | Connect with TLS (`rediss://`). Used when `VALKEY_URL` is not set; a URL carries its own scheme.                  |
 | `VALKEY_CLUSTER`               | `externalKeyValueStore.cluster`               | `false`    | Connect to a cluster (`redis+cluster://`). Used when `VALKEY_URL` is not set; a URL carries its own scheme.       |
+| `VALKEY_MULTI_DB`              | `externalKeyValueStore.multiDB`               | `""`       | Per-usage databases: empty = auto (separate for standalone, one for cluster), `true`, or `false`. Any other value fails startup. See [Single database](#single-database). |
 | `VALKEY_FORWARD_CACHE_TO_JOBS` | `config.forwardCacheToJobs`                   | `true`     | Forward the Renovate cache URL to executor jobs. Requires Valkey to be configured.                                |
 | `LOG_STORE_MODE`               | `config.logStorage.mode`                      | `disabled` | Log storage backend: `disabled`, `memory`, `valkey`, or `s3` (see [S3 Object Storage](./s3.md)).                  |
 
@@ -113,4 +126,8 @@ stringData:
   valkey-url: "redis+cluster://user:yourpassword@valkey-cluster.example.com:6379"
 ```
 
-Cluster mode only supports database `0`, so the [database assignment](#database-assignment) above doesn't apply: sessions, the Renovate cache and logs all share database `0`. Their key prefixes don't collide. The URL is forwarded to Renovate unchanged, and Renovate [supports](https://docs.renovatebot.com/self-hosted-configuration/#redisurl) the same scheme.
+By default, cluster mode uses one database: sessions, the Renovate cache and logs share the URL's database (`0` for host-based settings), and their key prefixes don't collide. A cluster URL is then forwarded to Renovate unchanged; Renovate [supports](https://docs.renovatebot.com/self-hosted-configuration/#redisurl) the same scheme.
+
+Valkey 9.0 and later can serve multiple databases in cluster mode. To apply the [database assignment](#database-assignment) to a cluster, set `externalKeyValueStore.multiDB: true` (`VALKEY_MULTI_DB=true`) and configure the server with `cluster-databases 3` or more (the default is `1`). On a server without enough cluster databases, the operator's startup connection check fails with a `SELECT` error.
+
+Renovate's cluster client applies the URL's database only to its discovery connection, so Renovate's cache data stays in database `0` even with `multiDB: true` until Renovate passes the database to its cluster connections. The cache's key prefixes don't collide with the operator's other usages. Sessions and logs do use their own databases.

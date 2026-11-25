@@ -488,8 +488,12 @@ logging:
 externalKeyValueStore:
   # -- whether the connection should be made with TLS encryption enabled (rediss://)
   useTls: false
-  # -- whether to connect to a cluster (redis+cluster://). All usages then share database 0.
+  # -- whether to connect to a cluster (redis+cluster://). All usages then share database 0 unless multiDB is true.
   cluster: false
+  # -- (bool) per-usage databases (sessions, Renovate cache, logs). Null = auto: separate databases
+  # for standalone, one database for cluster. true = separate in both modes (cluster needs
+  # Valkey 9+ with cluster-databases >= 3). false = one database in both modes.
+  multiDB: ~
   # -- host for the connection; alternatively provide via existingSecret.hostKey
   host: ~
   # -- port for the connection; alternatively provide via existingSecret.portKey

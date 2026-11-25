@@ -266,6 +266,10 @@ spec:
               value: "true"
             {{- end }}
             {{- end }}
+            {{- if not (kindIs "invalid" $ekv.multiDB) }}
+            - name: VALKEY_MULTI_DB
+              value: {{ $ekv.multiDB | quote }}
+            {{- end }}
             {{- else if .Values.valkey.enabled }}
             - name: VALKEY_HOST
               value: "{{ .Release.Name }}-valkey"

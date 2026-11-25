@@ -104,8 +104,8 @@ Kubernetes: `>=1.29.0-0`
 | deployment.podAnnotations | object | `{}` | additional annotations for the operator pods |
 | deployment.podLabels | object | `{}` | additional labels for the operator pods |
 | deployment.revisionHistoryLimit | int | `10` | revision history limit for the operator deployment |
-| externalKeyValueStore | object | `{"cluster":false,"existingSecret":{"hostKey":null,"name":null,"passwordKey":null,"portKey":null,"urlKey":null,"usernameKey":null},"host":null,"port":6379,"useTls":false,"username":null}` | Active when host or existingSecret.name is set. |
-| externalKeyValueStore.cluster | bool | `false` | whether to connect to a cluster (redis+cluster://). All usages then share database 0. |
+| externalKeyValueStore | object | `{"cluster":false,"existingSecret":{"hostKey":null,"name":null,"passwordKey":null,"portKey":null,"urlKey":null,"usernameKey":null},"host":null,"multiDB":null,"port":6379,"useTls":false,"username":null}` | Active when host or existingSecret.name is set. |
+| externalKeyValueStore.cluster | bool | `false` | whether to connect to a cluster (redis+cluster://). All usages then share database 0 unless multiDB is true. |
 | externalKeyValueStore.existingSecret | object | `{"hostKey":null,"name":null,"passwordKey":null,"portKey":null,"urlKey":null,"usernameKey":null}` | Keys win over their clear-value counterparts above. |
 | externalKeyValueStore.existingSecret.hostKey | string | `nil` | key containing the host for the connection |
 | externalKeyValueStore.existingSecret.name | string | `nil` | name of the secret containing connection and authentication information |
@@ -114,6 +114,7 @@ Kubernetes: `>=1.29.0-0`
 | externalKeyValueStore.existingSecret.urlKey | string | `nil` | When set, all other keys and clear values are ignored. |
 | externalKeyValueStore.existingSecret.usernameKey | string | `nil` | key containing the username for authentication |
 | externalKeyValueStore.host | string | `nil` | host for the connection; alternatively provide via existingSecret.hostKey |
+| externalKeyValueStore.multiDB | bool | `nil` | per-usage databases (sessions, Renovate cache, logs). Null = auto: separate databases for standalone, one database for cluster. true = separate in both modes (cluster needs Valkey 9+ with cluster-databases >= 3). false = one database in both modes. |
 | externalKeyValueStore.port | int | `6379` | port for the connection; alternatively provide via existingSecret.portKey |
 | externalKeyValueStore.useTls | bool | `false` | whether the connection should be made with TLS encryption enabled (rediss://) |
 | externalKeyValueStore.username | string | `nil` | Omit to authenticate as the default user. |

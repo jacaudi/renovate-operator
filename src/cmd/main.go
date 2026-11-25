@@ -588,6 +588,19 @@ func main() {
 			Default:  "false",
 		},
 		{
+			// "" = auto (per-usage databases unless cluster), "true"/"false" force it.
+			Key:      "VALKEY_MULTI_DB",
+			Optional: true,
+			Default:  "",
+			Validate: func(value string) error {
+				switch value {
+				case "", "true", "false":
+					return nil
+				}
+				return fmt.Errorf("'VALKEY_MULTI_DB' must be empty (auto), true or false, got %q", value)
+			},
+		},
+		{
 			Key:      "VALKEY_FORWARD_CACHE_TO_JOBS",
 			Optional: true,
 			Default:  "true",
