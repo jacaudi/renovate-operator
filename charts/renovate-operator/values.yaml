@@ -490,7 +490,7 @@ externalKeyValueStore:
   useTls: false
   # -- whether to connect to a cluster (redis+cluster://). All usages then share database 0 unless multiDB is true.
   cluster: false
-  # -- (bool) per-usage databases (sessions, Renovate cache, logs). Null = auto: separate databases
+  # -- (bool) per-usage databases (Renovate cache, sessions, logs). Null = auto: separate databases
   # for standalone, one database for cluster. true = separate in both modes (cluster needs
   # Valkey 9+ with cluster-databases >= 3). false = one database in both modes.
   multiDB: ~

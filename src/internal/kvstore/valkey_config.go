@@ -52,9 +52,13 @@ func ConfigFromEnv(get func(key string) string) ValkeyConfig {
 // or as an absolute database index when connecting via host/port.
 type Usage int
 
+// The Renovate cache takes the base slot: Renovate's cluster client ignores the
+// URL database on its data connections, so its cache data always lands in
+// database 0. With base 0 that is the cache's own database, which no operator
+// store uses.
 const (
-	UsageSessionStore  Usage = 0 // Session encryption store
-	UsageRenovateCache Usage = 1 // Renovate job cache forwarded to executor jobs
+	UsageRenovateCache Usage = 0 // Renovate job cache forwarded to executor jobs
+	UsageSessionStore  Usage = 1 // Session encryption store
 	UsageRenovateLogs  Usage = 2 // Log storage for completed Renovate runs
 )
 
@@ -72,11 +76,11 @@ const (
 //
 //   - URL-based (ValkeyConfig.URL set): the URL's database index is the base, and the
 //     usage value is added as an offset. A predefined URL of redis://host/5 yields:
-//     UsageSessionStore→5, UsageRenovateCache→6, UsageRenovateLogs→7.
+//     UsageRenovateCache→5, UsageSessionStore→6, UsageRenovateLogs→7.
 //     If the URL carries no explicit database (e.g. redis://host), base is 0.
 //
 //   - Host-based (ValkeyConfig.Host set): usage value is the absolute database index.
-//     UsageSessionStore→0, UsageRenovateCache→1, UsageRenovateLogs→2.
+//     UsageRenovateCache→0, UsageSessionStore→1, UsageRenovateLogs→2.
 //
 // When not split, a URL is returned unchanged and a Host config uses database 0;
 // the usages' key prefixes don't collide.

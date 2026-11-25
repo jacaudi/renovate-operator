@@ -697,7 +697,7 @@ func TestBuildValkeyURL_Cluster(t *testing.T) {
 
 func TestURLForUsage_HostBased_UsernameAndTLS(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379", Username: "renovate", Password: "s3cret", TLS: true}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "rediss://renovate:s3cret@valkey.example.com:6379/1" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "rediss://renovate:s3cret@valkey.example.com:6379/0" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 }
@@ -744,11 +744,11 @@ func TestConfigFromEnv_MultiDB(t *testing.T) {
 }
 
 func TestURLForUsage_MultiDB(t *testing.T) {
-	usages := []kvstore.Usage{kvstore.UsageSessionStore, kvstore.UsageRenovateCache, kvstore.UsageRenovateLogs}
+	usages := []kvstore.Usage{kvstore.UsageRenovateCache, kvstore.UsageSessionStore, kvstore.UsageRenovateLogs}
 	tests := []struct {
 		name string
 		cfg  kvstore.ValkeyConfig
-		want [3]string // per usage: session, cache, logs
+		want [3]string // per usage: cache, sessions, logs
 	}{
 		{
 			name: "host cluster true splits databases",
@@ -827,17 +827,17 @@ func TestURLForUsage_MultiDB(t *testing.T) {
 
 func TestURLForUsage_URLTakesPrecedenceOverHostFields(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379/5", Host: "other.example.com", Username: "renovate", Password: "s3cret", TLS: true}
-	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/5" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/5" {
 		t.Errorf("URL mode must ignore host-based fields: got %q", got)
 	}
 }
 
 func TestURLForUsage_HostBased_AbsoluteDB(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379"}
-	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/0" {
+	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/1" {
 		t.Errorf("UsageSessionStore: got %q", got)
 	}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/1" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/0" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 	if got := cfg.URLForUsage(kvstore.UsageRenovateLogs); got != "redis://valkey.example.com:6379/2" {
@@ -867,10 +867,10 @@ func TestURLForUsage_HostBased_Cluster(t *testing.T) {
 
 func TestURLForUsage_URLBased_OffsetFromBase(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379/5"}
-	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/5" {
+	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/6" {
 		t.Errorf("UsageSessionStore: got %q", got)
 	}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/6" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/5" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 	if got := cfg.URLForUsage(kvstore.UsageRenovateLogs); got != "redis://valkey.example.com:6379/7" {
@@ -880,7 +880,7 @@ func TestURLForUsage_URLBased_OffsetFromBase(t *testing.T) {
 
 func TestURLForUsage_URLWithNoDB_BaseIsZero(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379"}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/1" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/0" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 }

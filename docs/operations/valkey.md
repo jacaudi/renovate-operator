@@ -14,8 +14,8 @@ The operator uses three logical Valkey databases, each serving a distinct purpos
 
 | Usage                | DB (host-based) | Purpose                                       |
 |----------------------|-----------------|-----------------------------------------------|
-| `UsageSessionStore`  | 0               | Session encryption store                      |
-| `UsageRenovateCache` | 1               | Renovate job cache forwarded to executor jobs |
+| `UsageRenovateCache` | 0               | Renovate job cache forwarded to executor jobs |
+| `UsageSessionStore`  | 1               | Session encryption store                      |
 | `UsageRenovateLogs`  | 2               | Log storage for completed Renovate runs       |
 
 ### Predefined URL with explicit database
@@ -26,11 +26,22 @@ Example — `VALKEY_URL=redis://valkey:6379/5`:
 
 | Usage                | Resulting DB |
 |----------------------|--------------|
-| `UsageSessionStore`  | 5 (5 + 0)    |
-| `UsageRenovateCache` | 6 (5 + 1)    |
+| `UsageRenovateCache` | 5 (5 + 0)    |
+| `UsageSessionStore`  | 6 (5 + 1)    |
 | `UsageRenovateLogs`  | 7 (5 + 2)    |
 
 If `VALKEY_URL` has no database component (e.g. `redis://valkey:6379`), the base is `0` and databases `0`, `1`, `2` are used — the same as the host-based default.
+
+The Renovate cache takes the base database because Renovate's cluster client doesn't apply the URL's database to its data connections (see [High availability](#high-availability)), so its cache data always lands in database `0`. With base `0`, that is the cache's own database and none of the operator's stores share it.
+
+### Upgrade note
+
+Earlier releases put sessions in the base database and the Renovate cache in base + 1. After upgrading with separate databases:
+
+- Sessions move from the base database to base + 1, so users have to log in once.
+- The Renovate cache moves from base + 1 to the base database and starts empty.
+
+Logs stay in base + 2. The old keys expire on their own TTLs, and key names never collide (`session:*`, `RENOVATE_LOGS:*`, and Renovate's `<prefix><namespace>-<key>`), so no cleanup is needed. With one database nothing moves.
 
 ### Single database
 
@@ -130,4 +141,4 @@ By default, cluster mode uses one database: sessions, the Renovate cache and log
 
 Valkey 9.0 and later can serve multiple databases in cluster mode. To apply the [database assignment](#database-assignment) to a cluster, set `externalKeyValueStore.multiDB: true` (`VALKEY_MULTI_DB=true`) and configure the server with `cluster-databases 3` or more (the default is `1`). On a server without enough cluster databases, the operator's startup connection check fails with a `SELECT` error.
 
-Renovate's cluster client applies the URL's database only to its discovery connection, so Renovate's cache data stays in database `0` even with `multiDB: true` until Renovate passes the database to its cluster connections. The cache's key prefixes don't collide with the operator's other usages. Sessions and logs do use their own databases.
+Renovate's cluster client applies the URL's database only to its discovery connection, not to its data connections, so Renovate's cache data always goes to database `0`. Because the cache takes the base database, with the default base `0` it still gets its own database and all three usages are isolated. With a non-zero base (e.g. `redis+cluster://…/5`), the cache data still goes to database `0`, which none of the operator's stores use. Once Renovate passes the database to its cluster connections, the cache uses its base database with no change here.

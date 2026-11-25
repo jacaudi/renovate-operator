@@ -114,7 +114,7 @@ Kubernetes: `>=1.29.0-0`
 | externalKeyValueStore.existingSecret.urlKey | string | `nil` | When set, all other keys and clear values are ignored. |
 | externalKeyValueStore.existingSecret.usernameKey | string | `nil` | key containing the username for authentication |
 | externalKeyValueStore.host | string | `nil` | host for the connection; alternatively provide via existingSecret.hostKey |
-| externalKeyValueStore.multiDB | bool | `nil` | per-usage databases (sessions, Renovate cache, logs). Null = auto: separate databases for standalone, one database for cluster. true = separate in both modes (cluster needs Valkey 9+ with cluster-databases >= 3). false = one database in both modes. |
+| externalKeyValueStore.multiDB | bool | `nil` | per-usage databases (Renovate cache, sessions, logs). Null = auto: separate databases for standalone, one database for cluster. true = separate in both modes (cluster needs Valkey 9+ with cluster-databases >= 3). false = one database in both modes. |
 | externalKeyValueStore.port | int | `6379` | port for the connection; alternatively provide via existingSecret.portKey |
 | externalKeyValueStore.useTls | bool | `false` | whether the connection should be made with TLS encryption enabled (rediss://) |
 | externalKeyValueStore.username | string | `nil` | Omit to authenticate as the default user. |

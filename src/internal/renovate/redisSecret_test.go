@@ -54,8 +54,8 @@ func TestCreateRedisURLSecretCreatesWithGenerateName(t *testing.T) {
 	if secret.Name == "" {
 		t.Error("expected generated name, got empty string")
 	}
-	if got := string(secret.Data["redis-url"]); got != "redis://redis.svc.cluster.local:6379/1" {
-		t.Errorf("expected redis-url with cache db offset, got %q", got)
+	if got := string(secret.Data["redis-url"]); got != "redis://redis.svc.cluster.local:6379/0" {
+		t.Errorf("expected redis-url with the cache in the base db, got %q", got)
 	}
 	if got := secret.Labels[api.LabelAppManagedBy]; got != api.LabelValueManagedBy {
 		t.Errorf("expected managed-by label %q, got %q", api.LabelValueManagedBy, got)
@@ -140,7 +140,7 @@ func TestOwnRedisURLSecret(t *testing.T) {
 	scheme := policyScheme(t)
 	stored := &corev1.Secret{
 		ObjectMeta: metav1.ObjectMeta{Name: "redis-forward-secret-abcde", Namespace: "ns"},
-		Data:       map[string][]byte{"redis-url": []byte("redis://redis.svc.cluster.local:6379/1")},
+		Data:       map[string][]byte{"redis-url": []byte("redis://redis.svc.cluster.local:6379/0")},
 	}
 	c := fake.NewClientBuilder().WithScheme(scheme).WithObjects(stored).Build()
 
@@ -212,8 +212,8 @@ func TestDispatchScheduledCreatesOwnedRedisSecret(t *testing.T) {
 		t.Fatalf("expected exactly one redis secret, got %d", len(secrets))
 	}
 	secret := secrets[0]
-	if got := string(secret.Data["redis-url"]); got != "redis://redis.svc.cluster.local:6379/1" {
-		t.Errorf("expected redis-url with cache db offset, got %q", got)
+	if got := string(secret.Data["redis-url"]); got != "redis://redis.svc.cluster.local:6379/0" {
+		t.Errorf("expected redis-url with the cache in the base db, got %q", got)
 	}
 	if len(secret.OwnerReferences) != 1 || secret.OwnerReferences[0].Name != jobs[0].Name {
 		t.Errorf("expected secret owned by the created job %s, got %+v", jobs[0].Name, secret.OwnerReferences)
@@ -244,8 +244,8 @@ func TestCreateDiscoveryJobCreatesOwnedRedisSecret(t *testing.T) {
 		t.Fatalf("expected exactly one redis secret, got %d", len(secrets))
 	}
 	secret := secrets[0]
-	if got := string(secret.Data["redis-url"]); got != "redis://redis.svc.cluster.local:6379/1" {
-		t.Errorf("expected redis-url with cache db offset, got %q", got)
+	if got := string(secret.Data["redis-url"]); got != "redis://redis.svc.cluster.local:6379/0" {
+		t.Errorf("expected redis-url with the cache in the base db, got %q", got)
 	}
 	if len(secret.OwnerReferences) != 1 || secret.OwnerReferences[0].Name != jobs[0].Name {
 		t.Errorf("expected secret owned by the created job %s, got %+v", jobs[0].Name, secret.OwnerReferences)
