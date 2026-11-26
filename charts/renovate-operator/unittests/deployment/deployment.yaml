@@ -289,6 +289,56 @@ tests:
       content:
         name: VALKEY_CLUSTER
         value: "true"
+  - notContains:
+      path: spec.template.spec.containers[0].env
+      content:
+        name: VALKEY_MULTI_DB
+      any: true
+
+- it: External key value store multiDB true sets VALKEY_MULTI_DB
+  set:
+    externalKeyValueStore:
+      cluster: true
+      multiDB: true
+      existingSecret:
+        name: my-kv-secret
+        urlKey: url
+  asserts:
+  - contains:
+      path: spec.template.spec.containers[0].env
+      content:
+        name: VALKEY_MULTI_DB
+        value: "true"
+
+- it: External key value store multiDB false sets VALKEY_MULTI_DB
+  set:
+    externalKeyValueStore:
+      host: valkey.example.com
+      multiDB: false
+  asserts:
+  - contains:
+      path: spec.template.spec.containers[0].env
+      content:
+        name: VALKEY_MULTI_DB
+        value: "false"
+
+- it: Bundled valkey ignores externalKeyValueStore multiDB
+  set:
+    valkey:
+      enabled: true
+    externalKeyValueStore:
+      multiDB: true
+  asserts:
+  - contains:
+      path: spec.template.spec.containers[0].env
+      content:
+        name: VALKEY_HOST
+        value: renovate-operator-unittest-valkey
+  - notContains:
+      path: spec.template.spec.containers[0].env
+      any: true
+      content:
+        name: VALKEY_MULTI_DB
 
 - it: External key value store clear values with secret keys taking precedence
   set:

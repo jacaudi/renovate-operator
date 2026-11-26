@@ -588,6 +588,13 @@ func main() {
 			Default:  "false",
 		},
 		{
+			// "" = auto (per-usage databases unless cluster), "true"/"false" force it.
+			Key:      "VALKEY_MULTI_DB",
+			Optional: true,
+			Default:  "",
+			Validate: kvstore.ValidateMultiDB,
+		},
+		{
 			Key:      "VALKEY_FORWARD_CACHE_TO_JOBS",
 			Optional: true,
 			Default:  "true",

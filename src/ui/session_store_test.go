@@ -688,8 +688,8 @@ func TestBuildValkeyURL_TLS(t *testing.T) {
 }
 
 func TestBuildValkeyURL_Cluster(t *testing.T) {
-	result := kvstore.BuildValkeyURL("valkey.example.com", "6379", "", "s3cret", true, true, 99)
-	expected := "rediss+cluster://:s3cret@valkey.example.com:6379/0"
+	result := kvstore.BuildValkeyURL("valkey.example.com", "6379", "", "s3cret", true, true, 2)
+	expected := "rediss+cluster://:s3cret@valkey.example.com:6379/2"
 	if result != expected {
 		t.Errorf("got %q, want %q", result, expected)
 	}
@@ -697,7 +697,7 @@ func TestBuildValkeyURL_Cluster(t *testing.T) {
 
 func TestURLForUsage_HostBased_UsernameAndTLS(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379", Username: "renovate", Password: "s3cret", TLS: true}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "rediss://renovate:s3cret@valkey.example.com:6379/1" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "rediss://renovate:s3cret@valkey.example.com:6379/0" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 }
@@ -718,19 +718,126 @@ func TestConfigFromEnv_ReadsAllKeys(t *testing.T) {
 	}
 }
 
+func TestConfigFromEnv_MultiDB(t *testing.T) {
+	// want is the pointee rendered as text, "nil" for auto.
+	for _, tt := range []struct{ value, want string }{
+		{value: "", want: "nil"},
+		{value: "true", want: "true"},
+		{value: "false", want: "false"},
+	} {
+		t.Run(tt.value, func(t *testing.T) {
+			cfg := kvstore.ConfigFromEnv(func(key string) string {
+				if key == "VALKEY_MULTI_DB" {
+					return tt.value
+				}
+				return ""
+			})
+			got := "nil"
+			if cfg.MultiDB != nil {
+				got = fmt.Sprint(*cfg.MultiDB)
+			}
+			if got != tt.want {
+				t.Errorf("MultiDB: got %s, want %s", got, tt.want)
+			}
+		})
+	}
+}
+
+func TestURLForUsage_MultiDB(t *testing.T) {
+	usages := []kvstore.Usage{kvstore.UsageRenovateCache, kvstore.UsageSessionStore, kvstore.UsageRenovateLogs}
+	tests := []struct {
+		name string
+		cfg  kvstore.ValkeyConfig
+		want [3]string // per usage: cache, sessions, logs
+	}{
+		{
+			name: "host cluster true splits databases",
+			cfg:  kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379", Password: "s3cret", TLS: true, Cluster: true, MultiDB: new(true)},
+			want: [3]string{
+				"rediss+cluster://:s3cret@valkey.example.com:6379/0",
+				"rediss+cluster://:s3cret@valkey.example.com:6379/1",
+				"rediss+cluster://:s3cret@valkey.example.com:6379/2",
+			},
+		},
+		{
+			name: "cluster URL true offsets from base",
+			cfg:  kvstore.ValkeyConfig{URL: "rediss+cluster://u:p@valkey.example.com:6379/5", MultiDB: new(true)},
+			want: [3]string{
+				"rediss+cluster://u:p@valkey.example.com:6379/5",
+				"rediss+cluster://u:p@valkey.example.com:6379/6",
+				"rediss+cluster://u:p@valkey.example.com:6379/7",
+			},
+		},
+		{
+			name: "cluster URL true without database offsets from zero",
+			cfg:  kvstore.ValkeyConfig{URL: "redis+cluster://valkey.example.com:6379", MultiDB: new(true)},
+			want: [3]string{
+				"redis+cluster://valkey.example.com:6379/0",
+				"redis+cluster://valkey.example.com:6379/1",
+				"redis+cluster://valkey.example.com:6379/2",
+			},
+		},
+		{
+			name: "host standalone false uses database 0",
+			cfg:  kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379", MultiDB: new(false)},
+			want: [3]string{
+				"redis://valkey.example.com:6379/0",
+				"redis://valkey.example.com:6379/0",
+				"redis://valkey.example.com:6379/0",
+			},
+		},
+		{
+			name: "standalone URL false is unchanged",
+			cfg:  kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379/5", MultiDB: new(false)},
+			want: [3]string{
+				"redis://valkey.example.com:6379/5",
+				"redis://valkey.example.com:6379/5",
+				"redis://valkey.example.com:6379/5",
+			},
+		},
+		{
+			name: "host cluster false matches auto",
+			cfg:  kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379", Password: "s3cret", TLS: true, Cluster: true, MultiDB: new(false)},
+			want: [3]string{
+				"rediss+cluster://:s3cret@valkey.example.com:6379/0",
+				"rediss+cluster://:s3cret@valkey.example.com:6379/0",
+				"rediss+cluster://:s3cret@valkey.example.com:6379/0",
+			},
+		},
+		{
+			name: "cluster URL false is unchanged",
+			cfg:  kvstore.ValkeyConfig{URL: "redis+cluster://valkey.example.com:6379", MultiDB: new(false)},
+			want: [3]string{
+				"redis+cluster://valkey.example.com:6379",
+				"redis+cluster://valkey.example.com:6379",
+				"redis+cluster://valkey.example.com:6379",
+			},
+		},
+	}
+	for _, tt := range tests {
+		t.Run(tt.name, func(t *testing.T) {
+			for i, usage := range usages {
+				if got := tt.cfg.URLForUsage(usage); got != tt.want[i] {
+					t.Errorf("usage %d: got %q, want %q", usage, got, tt.want[i])
+				}
+			}
+		})
+	}
+}
+
 func TestURLForUsage_URLTakesPrecedenceOverHostFields(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379/5", Host: "other.example.com", Username: "renovate", Password: "s3cret", TLS: true}
-	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/5" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/5" {
 		t.Errorf("URL mode must ignore host-based fields: got %q", got)
 	}
 }
 
 func TestURLForUsage_HostBased_AbsoluteDB(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{Host: "valkey.example.com", Port: "6379"}
-	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/0" {
+	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/1" {
 		t.Errorf("UsageSessionStore: got %q", got)
 	}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/1" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/0" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 	if got := cfg.URLForUsage(kvstore.UsageRenovateLogs); got != "redis://valkey.example.com:6379/2" {
@@ -760,10 +867,10 @@ func TestURLForUsage_HostBased_Cluster(t *testing.T) {
 
 func TestURLForUsage_URLBased_OffsetFromBase(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379/5"}
-	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/5" {
+	if got := cfg.URLForUsage(kvstore.UsageSessionStore); got != "redis://valkey.example.com:6379/6" {
 		t.Errorf("UsageSessionStore: got %q", got)
 	}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/6" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/5" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 	if got := cfg.URLForUsage(kvstore.UsageRenovateLogs); got != "redis://valkey.example.com:6379/7" {
@@ -773,7 +880,7 @@ func TestURLForUsage_URLBased_OffsetFromBase(t *testing.T) {
 
 func TestURLForUsage_URLWithNoDB_BaseIsZero(t *testing.T) {
 	cfg := kvstore.ValkeyConfig{URL: "redis://valkey.example.com:6379"}
-	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/1" {
+	if got := cfg.URLForUsage(kvstore.UsageRenovateCache); got != "redis://valkey.example.com:6379/0" {
 		t.Errorf("UsageRenovateCache: got %q", got)
 	}
 }
