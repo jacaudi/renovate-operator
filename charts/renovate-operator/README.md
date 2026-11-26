@@ -122,6 +122,10 @@ Kubernetes: `>=1.29.0-0`
 | extraVolumeMounts | list | `[]` | extra volume mounts to add to the operator container |
 | extraVolumes | list | `[]` | extra volumes to add to the operator pod (e.g. for CA certificates) |
 | fullnameOverride | string | `""` | override the fullname of created resources |
+| hostedConfig | object | `{"enabled":false,"existingConfigMaps":[],"files":{}}` | host Renovate presets from the operator: write them as YAML, the operator serves each as JSON at <basePath>/config/<name>.json, .jsonc and .json5. See docs/configuration/hosted-config.md. |
+| hostedConfig.enabled | bool | `false` | whether to serve the presets below. The route is public (no login): never put secrets in a preset. |
+| hostedConfig.existingConfigMaps | list | `[]` | names of ConfigMaps you manage whose keys are <name>.yaml files; all are merged into one folder, alongside files. File names must be unique across them: on a clash the later entry wins, and files wins over all, so list the one you trust most last. |
+| hostedConfig.files | object | `{}` | map of preset name to its Renovate config, written as plain YAML; the chart generates a ConfigMap with one <name>.yaml key each |
 | image.imagePullSecrets | list | `[]` | imagePullSecrets for the operator pod |
 | image.pullPolicy | string | `"IfNotPresent"` |  |
 | image.registry | string | `"ghcr.io"` |  |

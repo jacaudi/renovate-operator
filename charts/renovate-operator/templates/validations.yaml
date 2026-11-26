@@ -2,3 +2,16 @@
 {{- if or .Values.valkey.existingSecret .Values.valkey.existingSecretKey }}
 {{- fail "valkey.existingSecret and valkey.existingSecretKey were removed; use externalKeyValueStore.existingSecret.name and externalKeyValueStore.existingSecret.urlKey instead" }}
 {{- end }}
+{{- if .Values.hostedConfig.enabled }}
+{{- if not (or .Values.hostedConfig.files .Values.hostedConfig.existingConfigMaps) }}
+{{- fail "hostedConfig.enabled requires hostedConfig.files or hostedConfig.existingConfigMaps" }}
+{{- end }}
+{{- /* A bare name: the operator serves <name>.yaml as <name>.json, .jsonc and .json5.
+       Checked here, not in the schema: the schema's message for a bad key is unreadable. */}}
+{{- $namePattern := "^[A-Za-z0-9][A-Za-z0-9_-]*$" }}
+{{- range $name, $_ := .Values.hostedConfig.files }}
+{{- if not (regexMatch $namePattern $name) }}
+{{- fail (printf "hostedConfig.files: %q is not a valid name; use a bare name matching %s (it is served as <name>.json, .jsonc and .json5)" $name $namePattern) }}
+{{- end }}
+{{- end }}
+{{- end }}

@@ -1,0 +1,12 @@
+{{- if and .Values.hostedConfig.enabled .Values.hostedConfig.files }}
+apiVersion: v1
+kind: ConfigMap
+metadata:
+  name: {{ include "renovate-operator.fullname" . }}-hosted-config
+  namespace: {{ .Release.Namespace }}
+data:
+  {{- range $name, $preset := .Values.hostedConfig.files }}
+  {{ printf "%s.yaml" $name | quote }}: |
+    {{- toYaml $preset | nindent 4 }}
+  {{- end }}
+{{- end }}

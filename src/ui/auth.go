@@ -191,6 +191,12 @@ func isPublicPath(path string) bool {
 	if strings.HasPrefix(path, "/auth/") {
 		return true
 	}
+	// Hosted Renovate presets are fetched by Renovate itself, which has no
+	// browser session. Public only while the feature is on, so the path cannot
+	// reach anything else past the login.
+	if name, ok := strings.CutPrefix(path, "/config/"); ok && isHostedConfigName(name) && hostedConfigDir() != "" {
+		return true
+	}
 	// Static assets must be accessible without auth so the page can render.
 	// /components/ is fetched via XHR (Babel), which cannot follow the
 	// cross-origin redirect to the identity provider — a 302 there breaks

@@ -32,6 +32,7 @@ type Server struct {
 	lockoutCheck   accessCheckCache
 	setup          SetupEnvironment
 	setupCheck     setupStatusCache
+	hostedConfig   hostedConfigCache
 	// setupComplete latches once every setup step is done, so the steady
 	// state stops checking projects and secrets for a guide nobody sees.
 	// It resets when the last RenovateJob is deleted (starting over).
@@ -88,6 +89,16 @@ func (s *Server) getAuthStatus(w http.ResponseWriter, r *http.Request) {
 	s.auth.HandleAuthStatus(w, r)
 }
 
+// registerRoutes mounts every route on base. Order matters: the UI routes end
+// in a catch-all, so anything registered after them is unreachable.
+func (s *Server) registerRoutes(base *mux.Router) {
+	s.registerAuthRoutes(base)
+	s.registerApiV1Routes(base)
+	s.registerHealthRoutes(base)
+	s.registerHostedConfigRoutes(base)
+	s.registerUiRoutes(base)
+}
+
 func (s *Server) Run() {
 	assert.Assert(s.manager != nil, "failed to start server. manager must not be nil")
 	assert.Assert(s.health != nil, "failed to start server. health check must not be nil")
@@ -105,10 +116,7 @@ func (s *Server) Run() {
 		}).Methods("GET")
 	}
 
-	s.registerAuthRoutes(base)
-	s.registerApiV1Routes(base)
-	s.registerHealthRoutes(base)
-	s.registerUiRoutes(base)
+	s.registerRoutes(base)
 
 	var handler http.Handler = s.Router
 	if s.auth != nil {

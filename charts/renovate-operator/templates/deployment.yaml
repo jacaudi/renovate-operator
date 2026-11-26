@@ -96,6 +96,10 @@ spec:
             - name: BASE_PATH
               value: {{ $basePath | quote }}
             {{- end }}
+            {{- if .Values.hostedConfig.enabled }}
+            - name: HOSTED_CONFIG_DIR
+              value: /etc/renovate-operator/hosted-config
+            {{- end }}
             {{- if .Values.rbac.ownNamespaceOnly }}
             - name: CLUSTER_TEMPLATES_ENABLED
               value: "false"
@@ -415,8 +419,13 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-          {{- if or .Values.extraVolumeMounts (and .Values.auth.oidc.enabled .Values.auth.oidc.caCert.existingSecret) }}
+          {{- if or .Values.extraVolumeMounts .Values.hostedConfig.enabled (and .Values.auth.oidc.enabled .Values.auth.oidc.caCert.existingSecret) }}
           volumeMounts:
+            {{- if .Values.hostedConfig.enabled }}
+            - name: hosted-config
+              mountPath: /etc/renovate-operator/hosted-config
+              readOnly: true
+            {{- end }}
             {{- if and .Values.auth.oidc.enabled .Values.auth.oidc.caCert.existingSecret }}
             - name: oidc-ca-cert
               mountPath: {{ .Values.auth.oidc.caCert.mountPath | quote }}
@@ -427,8 +436,23 @@ spec:
             {{- toYaml . | nindent 12 }}
             {{- end }}
           {{- end }}
-      {{- if or .Values.extraVolumes (and .Values.auth.oidc.enabled .Values.auth.oidc.caCert.existingSecret) }}
+      {{- if or .Values.extraVolumes .Values.hostedConfig.enabled (and .Values.auth.oidc.enabled .Values.auth.oidc.caCert.existingSecret) }}
       volumes:
+        {{- if .Values.hostedConfig.enabled }}
+        {{- /* Projected: several ConfigMaps land in one directory. On a duplicate
+               file name the later source wins, so the chart's own goes last. */}}
+        - name: hosted-config
+          projected:
+            sources:
+              {{- range .Values.hostedConfig.existingConfigMaps }}
+              - configMap:
+                  name: {{ . | quote }}
+              {{- end }}
+              {{- if .Values.hostedConfig.files }}
+              - configMap:
+                  name: {{ printf "%s-hosted-config" (include "renovate-operator.fullname" .) | quote }}
+              {{- end }}
+        {{- end }}
         {{- if and .Values.auth.oidc.enabled .Values.auth.oidc.caCert.existingSecret }}
         - name: oidc-ca-cert
           secret:
