@@ -310,6 +310,11 @@ func main() {
 			Default:  "",
 		},
 		{
+			Key:      "HOSTED_CONFIG_DIR",
+			Optional: true,
+			Default:  "",
+		},
+		{
 			Key:      "WEBHOOK_BASE_URL",
 			Optional: true,
 		},

@@ -223,6 +223,19 @@
         "forwardS3CacheToJobs": { "type": "boolean" }
       }
     },
+    "hostedConfig": {
+      "description": "Renovate presets written as YAML and served by the operator as JSON at <basePath>/config/<name>.json, .jsonc and .json5",
+      "type": "object",
+      "additionalProperties": false,
+      "properties": {
+        "enabled": { "type": "boolean" },
+        "files": {
+          "type": "object",
+          "additionalProperties": { "type": "object" }
+        },
+        "existingConfigMaps": { "type": "array", "items": { "type": "string", "pattern": "^[a-z0-9]([-a-z0-9.]*[a-z0-9])?$" } }
+      }
+    },
     "basePath": {
       "description": "sub-path the UI, API and auth endpoints are served under (e.g. \"/renovate\"); empty serves from the root",
       "type": "string"

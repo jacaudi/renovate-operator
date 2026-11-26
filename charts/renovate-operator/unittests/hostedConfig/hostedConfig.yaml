@@ -1,0 +1,188 @@
+chart:
+  appVersion: 0.1.0
+  version: 0.1.0
+suite: Hosted Renovate config
+release:
+  name: renovate-operator-unittest
+  namespace: testing
+templates:
+- templates/deployment.yaml
+- templates/hosted-config.yaml
+- templates/validations.yaml
+tests:
+- it: Is off by default
+  asserts:
+  - hasDocuments:
+      count: 0
+    template: templates/hosted-config.yaml
+  - notContains:
+      path: spec.template.spec.containers[0].env
+      content:
+        name: HOSTED_CONFIG_DIR
+      any: true
+    template: templates/deployment.yaml
+
+- it: Generates a ConfigMap of YAML sources from files and mounts it
+  set:
+    hostedConfig:
+      enabled: true
+      files:
+        default:
+          extends:
+          - config:recommended
+          timezone: Europe/Berlin
+        team-a:
+          versioningTemplate: "{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}"
+  asserts:
+  - isKind:
+      of: ConfigMap
+    template: templates/hosted-config.yaml
+  - equal:
+      path: metadata.name
+      value: renovate-operator-unittest-renovate-operator-hosted-config
+    template: templates/hosted-config.yaml
+  - equal:
+      path: data
+      value:
+        default.yaml: |
+          extends:
+          - config:recommended
+          timezone: Europe/Berlin
+        team-a.yaml: |
+          versioningTemplate: '{{#if versioning}}{{{versioning}}}{{else}}semver{{/if}}'
+    template: templates/hosted-config.yaml
+  - contains:
+      path: spec.template.spec.containers[0].env
+      content:
+        name: HOSTED_CONFIG_DIR
+        value: /etc/renovate-operator/hosted-config
+    template: templates/deployment.yaml
+  - contains:
+      path: spec.template.spec.containers[0].volumeMounts
+      content:
+        name: hosted-config
+        mountPath: /etc/renovate-operator/hosted-config
+        readOnly: true
+    template: templates/deployment.yaml
+  - contains:
+      path: spec.template.spec.volumes
+      content:
+        name: hosted-config
+        projected:
+          sources:
+          - configMap:
+              name: renovate-operator-unittest-renovate-operator-hosted-config
+    template: templates/deployment.yaml
+
+- it: Mounts several existing ConfigMaps into one directory without generating one
+  set:
+    hostedConfig:
+      enabled: true
+      existingConfigMaps:
+      - org-presets
+      - team-a-presets
+  asserts:
+  - hasDocuments:
+      count: 0
+    template: templates/hosted-config.yaml
+  - contains:
+      path: spec.template.spec.volumes
+      content:
+        name: hosted-config
+        projected:
+          sources:
+          - configMap:
+              name: org-presets
+          - configMap:
+              name: team-a-presets
+    template: templates/deployment.yaml
+
+- it: Combines existing ConfigMaps with files, generated ConfigMap last so it wins a name clash
+  set:
+    hostedConfig:
+      enabled: true
+      existingConfigMaps:
+      - org-presets
+      files:
+        default:
+          onboarding: false
+  asserts:
+  - isKind:
+      of: ConfigMap
+    template: templates/hosted-config.yaml
+  - equal:
+      path: spec.template.spec.volumes[0].projected.sources
+      value:
+      - configMap:
+          name: org-presets
+      - configMap:
+          name: renovate-operator-unittest-renovate-operator-hosted-config
+    template: templates/deployment.yaml
+
+- it: Keeps extraVolumes alongside the hosted config
+  set:
+    hostedConfig:
+      enabled: true
+      existingConfigMaps:
+      - my-presets
+    extraVolumes:
+    - name: scratch
+      emptyDir: {}
+    extraVolumeMounts:
+    - name: scratch
+      mountPath: /scratch
+  asserts:
+  - lengthEqual:
+      path: spec.template.spec.volumes
+      count: 2
+    template: templates/deployment.yaml
+  - lengthEqual:
+      path: spec.template.spec.containers[0].volumeMounts
+      count: 2
+    template: templates/deployment.yaml
+
+- it: Fails when enabled without a source
+  set:
+    hostedConfig:
+      enabled: true
+  asserts:
+  - failedTemplate:
+      errorMessage: "hostedConfig.enabled requires hostedConfig.files or hostedConfig.existingConfigMaps"
+    template: templates/validations.yaml
+
+- it: Fails on a file name that carries an extension
+  set:
+    hostedConfig:
+      enabled: true
+      files:
+        default.json:
+          onboarding: false
+  asserts:
+  - failedTemplate:
+      errorMessage: 'hostedConfig.files: "default.json" is not a valid name; use a bare name matching ^[A-Za-z0-9][A-Za-z0-9_-]*$ (it is served as <name>.json, .jsonc and .json5)'
+    template: templates/validations.yaml
+
+- it: Quotes an all-digit existingConfigMaps name
+  set:
+    hostedConfig:
+      enabled: true
+      existingConfigMaps:
+      - "123"
+  asserts:
+  - equal:
+      path: spec.template.spec.volumes[0].projected.sources[0].configMap.name
+      value: "123"
+    template: templates/deployment.yaml
+
+- it: Keeps the trailing newline of a preset's last multi-line string
+  set:
+    hostedConfig:
+      enabled: true
+      files:
+        default:
+          prFooter: "line one\nline two\n"
+  asserts:
+  - equal:
+      path: data["default.yaml"]
+      value: "prFooter: |\n  line one\n  line two\n"
+    template: templates/hosted-config.yaml
