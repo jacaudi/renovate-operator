@@ -592,13 +592,7 @@ func main() {
 			Key:      "VALKEY_MULTI_DB",
 			Optional: true,
 			Default:  "",
-			Validate: func(value string) error {
-				switch value {
-				case "", "true", "false":
-					return nil
-				}
-				return fmt.Errorf("'VALKEY_MULTI_DB' must be empty (auto), true or false, got %q", value)
-			},
+			Validate: kvstore.ValidateMultiDB,
 		},
 		{
 			Key:      "VALKEY_FORWARD_CACHE_TO_JOBS",

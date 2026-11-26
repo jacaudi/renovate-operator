@@ -47,6 +47,16 @@ func ConfigFromEnv(get func(key string) string) ValkeyConfig {
 	}
 }
 
+// ValidateMultiDB accepts the VALKEY_MULTI_DB values ConfigFromEnv understands:
+// "" (auto), "true" or "false". Anything else would silently mean false.
+func ValidateMultiDB(value string) error {
+	switch value {
+	case "", "true", "false":
+		return nil
+	}
+	return fmt.Errorf("'VALKEY_MULTI_DB' must be empty (auto), true or false, got %q", value)
+}
+
 // Usage identifies a logical Valkey database role.
 // The value doubles as an offset from the base database when a predefined URL is used,
 // or as an absolute database index when connecting via host/port.
@@ -69,7 +79,8 @@ const (
 //   - nil (auto): split for standalone, one database for cluster (a cluster URL
 //     uses redis+cluster:// / rediss+cluster://, a Host config sets Cluster).
 //   - true: split in both modes. Cluster mode needs Valkey 9.0+ with
-//     cluster-databases set to 3 or more, or SELECT fails.
+//     cluster-databases allowing at least base + 3 databases (3 when the URL
+//     names no database, 8 for /5), or SELECT fails.
 //   - false: one database in both modes.
 //
 // When split:

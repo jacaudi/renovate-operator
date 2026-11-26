@@ -43,6 +43,8 @@ Earlier releases put sessions in the base database and the Renovate cache in bas
 
 Logs stay in base + 2. The old keys expire on their own TTLs, and key names never collide (`session:*`, `RENOVATE_LOGS:*`, and Renovate's `<prefix><namespace>-<key>`), so no cleanup is needed. With one database nothing moves.
 
+During the rollout, executor jobs that are already running keep the old cache URL until they finish, and old and new operator pods read sessions from different databases, so users may be logged out until the rollout completes.
+
 ### Single database
 
 `VALKEY_MULTI_DB` (Helm: `externalKeyValueStore.multiDB`) controls whether the usages get separate databases:
@@ -139,6 +141,6 @@ stringData:
 
 By default, cluster mode uses one database: sessions, the Renovate cache and logs share the URL's database (`0` for host-based settings), and their key prefixes don't collide. A cluster URL is then forwarded to Renovate unchanged; Renovate [supports](https://docs.renovatebot.com/self-hosted-configuration/#redisurl) the same scheme.
 
-Valkey 9.0 and later can serve multiple databases in cluster mode. To apply the [database assignment](#database-assignment) to a cluster, set `externalKeyValueStore.multiDB: true` (`VALKEY_MULTI_DB=true`) and configure the server with `cluster-databases 3` or more (the default is `1`). On a server without enough cluster databases, the operator's startup connection check fails with a `SELECT` error.
+Valkey 9.0 and later can serve multiple databases in cluster mode. To apply the [database assignment](#database-assignment) to a cluster, set `externalKeyValueStore.multiDB: true` (`VALKEY_MULTI_DB=true`) and configure the server's `cluster-databases` (the default is `1`) to allow at least base + 3 databases: 3 when the URL names no database, 8 for a URL ending in `/5`. Otherwise the operator fails at startup when it creates the Valkey client, because the `SELECT` in the connection handshake is rejected: Valkey 8 replies `SELECT is not allowed in cluster mode`, and Valkey 9 with too few databases replies `DB index is out of range`.
 
 Renovate's cluster client applies the URL's database only to its discovery connection, not to its data connections, so Renovate's cache data always goes to database `0`. Because the cache takes the base database, with the default base `0` it still gets its own database and all three usages are isolated. With a non-zero base (e.g. `redis+cluster://…/5`), the cache data still goes to database `0`, which none of the operator's stores use. Once Renovate passes the database to its cluster connections, the cache uses its base database with no change here.
